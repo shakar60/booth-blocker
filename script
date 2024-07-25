@@ -1,0 +1,166 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+local activeBooth = nil
+local blockingEnabled = false
+
+-- Create GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player.PlayerGui
+
+-- Create main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 220, 0, 200)
+mainFrame.Position = UDim2.new(0, 10, 0, 10)
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+mainFrame.BackgroundTransparency = 0.5
+mainFrame.Parent = screenGui
+
+-- Create drag functionality
+local function onInputBegan(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local dragStart = input.Position
+        local startPos = mainFrame.Position
+
+        local function onInputChanged(inputChanged)
+            if inputChanged.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = inputChanged.Position - dragStart
+                mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end
+
+        UserInputService.InputChanged:Connect(onInputChanged)
+
+        -- Stop dragging when the mouse button is released
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                UserInputService.InputChanged:Disconnect(onInputChanged)
+            end
+        end)
+    end
+end
+
+UserInputService.InputBegan:Connect(onInputBegan)
+
+-- Create Text Labels
+local label1 = Instance.new("TextLabel")
+label1.Size = UDim2.new(1, 0, 0, 50)
+label1.Position = UDim2.new(0, 0, 0, 10)
+label1.Text = "by rouxhaver"
+label1.TextColor3 = Color3.fromRGB(255, 255, 255)
+label1.BackgroundTransparency = 1
+label1.Parent = mainFrame
+
+local label2 = Instance.new("TextLabel")
+label2.Size = UDim2.new(1, 0, 0, 50)
+label2.Position = UDim2.new(0, 0, 0, 60)
+label2.Text = "GUI added by shakar"
+label2.TextColor3 = Color3.fromRGB(255, 255, 255)
+label2.BackgroundTransparency = 1
+label2.Parent = mainFrame
+
+-- Create Buttons
+local turnOnButton = Instance.new("TextButton")
+turnOnButton.Size = UDim2.new(1, 0, 0, 50)
+turnOnButton.Position = UDim2.new(0, 0, 0, 110)
+turnOnButton.Text = "Turn Booth Blocker On"
+turnOnButton.Parent = mainFrame
+
+local turnOffButton = Instance.new("TextButton")
+turnOffButton.Size = UDim2.new(1, 0, 0, 50)
+turnOffButton.Position = UDim2.new(0, 0, 0, 170)
+turnOffButton.Text = "Turn Booth Blocker Off"
+turnOffButton.Parent = mainFrame
+
+-- Create Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -30, 0, 0)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+closeButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+closeButton.Parent = mainFrame
+
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+-- Function to turn on booth blocker
+local function enableBoothBlocker()
+    blockingEnabled = true
+    -- Clear existing parts
+    for _, child in pairs(workspace:GetChildren()) do
+        if child:IsA("Folder") and child.Name == "BoothBlocker" then
+            child:Destroy()
+        end
+    end
+
+    local stuff = Instance.new("Folder")
+    stuff.Name = "BoothBlocker"
+    stuff.Parent = workspace
+
+    for _, booth in pairs(workspace:GetChildren()) do
+        if booth.Name == "Booth" then
+            local selPart = Instance.new("Part")
+            selPart.CanCollide = false
+            selPart.Anchored = true
+            selPart.CFrame = booth.Banner.CFrame
+            selPart.Size = Vector3.new(8.7, 2.9, 0.5)
+            selPart.Name = "selpart"
+            selPart.Transparency = 1
+            selPart.Parent = stuff
+        end
+    end
+
+    local outline = Instance.new("SelectionBox")
+    outline.Parent = stuff
+
+    mouse.Button1Up:Connect(function()
+        if mouse.Target and mouse.Target.Name == "selpart" then
+            activeBooth = mouse.Target
+        end
+    end)
+
+    RunService.RenderStepped:Connect(function()
+        if blockingEnabled then
+            if mouse.Target and mouse.Target.Name == "selpart" then
+                outline.Adornee = mouse.Target
+            else
+                outline.Adornee = nil
+            end
+        end
+    end)
+end
+
+-- Function to turn off booth blocker
+local function disableBoothBlocker()
+    blockingEnabled = false
+    activeBooth = nil
+    local boothBlockerFolder = workspace:FindFirstChild("BoothBlocker")
+    if boothBlockerFolder then
+        boothBlockerFolder:Destroy()
+    end
+end
+
+turnOnButton.MouseButton1Click:Connect(enableBoothBlocker)
+turnOffButton.MouseButton1Click:Connect(disableBoothBlocker)
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Space then
+        disableBoothBlocker()
+    end
+end)
+
+-- Handle booth blocking movement
+RunService.RenderStepped:Connect(function()
+    if blockingEnabled and activeBooth then
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = activeBooth.CFrame * CFrame.Angles(0, 0, math.rad(90)) + activeBooth.CFrame.RightVector * -1.5
+            hrp.Velocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
